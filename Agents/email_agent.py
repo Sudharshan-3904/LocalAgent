@@ -27,8 +27,6 @@ CHAT_MODEL = 'qwen3:14B'
 class ChatState(TypedDict):
     messages: list
 
-app_state = {'messages': []}
-
 
 def connect():
     """Establishes a connection to the IMAP mailbox."""
@@ -146,51 +144,23 @@ def process_email_request(user_message: str) -> str:
     Returns:
         str: The agent's final response or tool output.
     """
-    global app_state
-
-    app_state['messages'] = []
-
-    app_state['messages'].append(HumanMessage(content=user_message))
+    # Using a local state for this request to avoid global state issues
+    initial_state = {'messages': [HumanMessage(content=user_message)]}
 
     final_graph_output = None
-    for s in graph.stream(app_state):
+    for s in graph.stream(initial_state):
         if 'llm' in s:
             final_graph_output = s['llm']
         elif 'tools' in s:
             final_graph_output = s['tools']
 
-        if final_graph_output and 'messages' in final_graph_output:
-            app_state['messages'] = final_graph_output['messages']
-
-    if 'messages' in app_state and app_state['messages']:
-        last_message = app_state['messages'][-1]
+    if final_graph_output and 'messages' in final_graph_output and final_graph_output['messages']:
+        last_message = final_graph_output['messages'][-1]
         if isinstance(last_message, AIMessage):
-            if last_message.content:
-                return last_message.content
-            elif last_message.tool_calls:
-                return f"AI requested tool call: {last_message.tool_calls}. Processing..."
-            else:
-                return "AI finished processing without explicit content."
+            return last_message.content
         elif isinstance(last_message, ToolMessage):
             return last_message.content
         else:
             return f"Agent Response: {last_message}"
     else:
         return "No response from email agent."
-
-
-if __name__ == '__main__':
-    print("Backend Email Agent Script - Simulating Requests")
-    print("------------------------------------------------")
-    print("This script now acts as a backend. You can simulate requests.")
-    print("Ensure IMAP_HOST, IMAP_USER, IMAP_PASS are set as environment variables.")
-    print("Type 'quit' to exit.")
-
-    while True:
-        simulated_user_input = input("\nSimulate user request (e.g., 'list unread emails', 'summarize email 123', or 'quit'): ")
-
-        if simulated_user_input.lower() == 'quit':
-            break
-
-        response = process_email_request(simulated_user_input)
-        print(f"\nAgent Response: {response}")

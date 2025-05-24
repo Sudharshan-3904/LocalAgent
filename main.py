@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv, set_key, unset_key, find_dotenv
 import json
 import sys
+import io
 
 sys.path.insert(0, './Agents')
 
@@ -16,10 +17,9 @@ st.set_page_config(layout="wide", page_title="Local AI Agent System")
 st.sidebar.title("Local AI Agents")
 st.sidebar.markdown("---")
 
-# Removed the 'icons' parameter as it's not supported in older Streamlit versions
 page_selection = st.sidebar.radio(
     "Navigate",
-    ["👨🏻‍💻 Code Agent", "📧 Email Agent", "⚙️ Environment Variables"]
+    ["🤖 Code Agent", "📧 Email Agent", "⚙️ Environment Variables"]
 )
 st.sidebar.markdown("---")
 st.sidebar.info("All agents run locally. Ensure Ollama models are pulled and .env is configured.")
@@ -31,6 +31,8 @@ if "email_chat_history" not in st.session_state:
     st.session_state.email_chat_history = []
 if "env_vars" not in st.session_state:
     st.session_state.env_vars = {}
+if "generated_code_output" not in st.session_state:
+    st.session_state.generated_code_output = ""
 
 
 def load_env_file():
@@ -49,28 +51,47 @@ def load_env_file():
 load_env_file()
 
 
-if page_selection == "Code Agent":
-    st.header("Code Agent 🐍")
-    st.markdown("Generate, analyze, and edit Python code. Generated code will be saved in the `Outputs/` directory.")
+if page_selection == "🤖 Code Agent":
+    st.header("Code Agent 🤖")
+    st.markdown("Generate, analyze, and edit Python code. Generated code will be saved in the `Outputs` directory.")
 
     user_query = st.text_input("Your instruction for the Code Agent:", key="code_agent_query")
 
-    uploaded_code_content = st.text_area(
-        "Optional: Paste code for analysis/editing (e.g., for 'analyze this code'):",
-        height=200,
-        key="code_to_analyze"
-    )
+    uploaded_file = st.file_uploader("Optional: Upload a Python file for analysis/editing (e.g., for 'analyze this code'):", type=["py"], key="code_file_upload")
+    uploaded_code_content = None
+    if uploaded_file is not None:
+        uploaded_code_content = uploaded_file.read().decode("utf-8")
+        st.code(uploaded_code_content, language="python") # Removed 'summary' argument
+
 
     if st.button("Run Code Agent", key="run_code_agent_btn"):
         if user_query:
             with st.spinner("Code Agent is processing..."):
-                response = process_code_request(user_query, uploaded_code_content)
+                # Pass uploaded_code_content correctly to the agent
+                response = process_code_request(user_query, uploaded_content=uploaded_code_content) # Ensure the named argument is used
                 st.session_state.code_chat_history.append({"role": "user", "content": user_query})
                 if uploaded_code_content:
                     st.session_state.code_chat_history.append({"role": "code_upload", "content": uploaded_code_content})
                 st.session_state.code_chat_history.append({"role": "agent", "content": response})
+
+                if response.startswith("```python") and response.endswith("```"):
+                    st.session_state.generated_code_output = response.strip("```python\n").strip("```")
+                else:
+                    st.session_state.generated_code_output = ""
         else:
             st.warning("Please enter an instruction for the Code Agent.")
+
+    if st.session_state.generated_code_output:
+        st.markdown("---")
+        st.subheader("Download Generated Code")
+        st.download_button(
+            label="Download Generated Code",
+            data=st.session_state.generated_code_output,
+            file_name="generated_code.py",
+            mime="text/x-python",
+            key="download_generated_code_btn"
+        )
+
 
     st.markdown("---")
     st.subheader("Code Agent Chat History")
@@ -83,7 +104,7 @@ if page_selection == "Code Agent":
             st.markdown(f"**Agent:** {message['content']}")
 
 
-elif page_selection == "Email Agent":
+elif page_selection == "📧 Email Agent":
     st.header("Email Agent 📧")
     st.markdown("Manage your emails: list unread messages or summarize specific emails.")
     st.info("Requires IMAP credentials to be set in the `.env` file.")
