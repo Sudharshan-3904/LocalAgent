@@ -1,0 +1,14 @@
+[project]
+name = "localagent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "imap-client>=0.1.8",
+    "imap-tools>=1.10.0",
+    "inspect-it",
+    "langchain>=0.3.25",
+    "langchain-ollama>=0.3.3",
+    "langgraph>=0.4.7",
+]
