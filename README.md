@@ -46,7 +46,7 @@ Follow these steps to set up the project locally:
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/your-username/your-repo-name.git
+    git clone https://github.com/Sudharshan-3904/LocalAgent.git
     cd your-repo-name
     ```
 
@@ -128,16 +128,16 @@ To run the Streamlit application:
 
 ```file
 .
-├── .env                # Environment variables for sensitive information
-├── .gitignore          # Files/directories to ignore in Git
-├── .python-version     # (Optional) Specifies Python version for tools like pyenv
-├── main.py             # Main Streamlit user interface
-├── pyproject.toml      # Project configuration (e.g., for poetry, pip-tools)
-├── uv.lock             # Lock file for uv (if used for dependency management)
-├── Agents/             # Directory containing agent scripts
-│   ├── code_agent.py   # Backend script for the Code Agent
-│   └── email_agent.py  # Backend script for the Email Agent
-└── Outputs/            # Directory where generated/edited code files are saved
+├── .env
+├── .gitignore
+├── .python-version
+├── main.py
+├── pyproject.toml
+├── uv.lock
+├── Agents/
+│   ├── code_agent.py
+│   └── email_agent.py
+└── Outputs/
 ```
 
 ---
