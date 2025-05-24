@@ -1,0 +1,6 @@
+streamlit
+langchain
+langgraph
+imap-tools
+python-dotenv
+ollama

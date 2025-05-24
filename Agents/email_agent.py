@@ -4,7 +4,8 @@ from typing import TypedDict, Optional
 
 from dotenv import load_dotenv
 from imap_tools import MailBox, AND
-from imap_tools.errors import MailboxLoginError, MailboxError
+from imap_tools.errors import MailboxLoginError
+
 
 from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
@@ -17,7 +18,7 @@ load_dotenv()
 
 IMAP_HOST = os.getenv("IMAP_HOST")
 IMAP_USER = os.getenv("IMAP_USER")
-IMAP_PASSWORD = os.getenv("IMAP_PASSWORD")
+IMAP_PASS = os.getenv("IMAP_PASS")
 IMAP_FOLDER = 'INBOX'
 
 CHAT_MODEL = 'qwen3:14B'
@@ -31,16 +32,14 @@ app_state = {'messages': []}
 
 def connect():
     """Establishes a connection to the IMAP mailbox."""
-    if not all([IMAP_HOST, IMAP_USER, IMAP_PASSWORD]):
-        raise ValueError("IMAP credentials (IMAP_HOST, IMAP_USER, IMAP_PASSWORD) must be set in environment variables.")
+    if not all([IMAP_HOST, IMAP_USER, IMAP_PASS]):
+        raise ValueError("IMAP credentials (IMAP_HOST, IMAP_USER, IMAP_PASS) must be set in environment variables.")
     try:
         mailbox = MailBox(IMAP_HOST)
-        mailbox.login(IMAP_USER, IMAP_PASSWORD, initial_folder=IMAP_FOLDER)
+        mailbox.login(IMAP_USER, IMAP_PASS, initial_folder=IMAP_FOLDER)
         return mailbox
     except MailboxLoginError:
         raise ConnectionError("Failed to log in to the IMAP mailbox. Check credentials.")
-    except MailboxError as e:
-        raise ConnectionError(f"IMAP mailbox error during connection: {e}")
     except Exception as e:
         raise ConnectionError(f"An unexpected error occurred during IMAP connection: {e}")
 
@@ -51,10 +50,10 @@ def list_unread_emails():
     try:
         with connect() as mb:
             unread = mb.fetch(criteria=AND(seen=False), headers_only=True, mark_seen=False)
-            
+
             if not unread:
                 return 'You have no unread messages.'
-            
+
             response = json.dumps([
                 {
                     'uid': mail.uid,
@@ -78,7 +77,7 @@ def summarize_email(uid: str):
 
             if not mail:
                 return f'Could not find email with uid {uid}.'
-            
+
             prompt = (
                 "Summarize this email concisely:\n\n"
                 f"Subject: {mail.subject}\n"
@@ -86,13 +85,13 @@ def summarize_email(uid: str):
                 f"Date: {mail.date}\n"
                 f"{mail.text or mail.html}"
             )
-            
+
             return raw_llm.invoke(prompt).content
     except ConnectionError as e:
         return f"Error connecting to email server: {e}"
     except Exception as e:
         return f"An unexpected error occurred while summarizing email: {e}"
-    
+
 
 llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
 llm = llm.bind_tools([list_unread_emails, summarize_email])
@@ -184,7 +183,7 @@ if __name__ == '__main__':
     print("Backend Email Agent Script - Simulating Requests")
     print("------------------------------------------------")
     print("This script now acts as a backend. You can simulate requests.")
-    print("Ensure IMAP_HOST, IMAP_USER, IMAP_PASSWORD are set as environment variables.")
+    print("Ensure IMAP_HOST, IMAP_USER, IMAP_PASS are set as environment variables.")
     print("Type 'quit' to exit.")
 
     while True:
