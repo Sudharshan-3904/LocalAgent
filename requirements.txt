@@ -3,4 +3,7 @@ langchain
 langgraph
 imap-tools
 python-dotenv
+PyPDF2
+python-docx
+langchain-community
 ollama

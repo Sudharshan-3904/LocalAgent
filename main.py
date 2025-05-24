@@ -9,6 +9,7 @@ sys.path.insert(0, './Agents')
 
 from Agents.code_agent import process_agent_request as process_code_request
 from Agents.email_agent import process_email_request as process_email_request
+from Agents.rag_agent import load_and_process_document, process_rag_request # Import RAG functions
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ st.sidebar.markdown("---")
 
 page_selection = st.sidebar.radio(
     "Navigate",
-    ["🤖 Code Agent", "📧 Email Agent", "⚙️ Environment Variables"]
+    ["🤖 Code Agent", "📧 Email Agent", "📚 RAG Agent", "⚙️ Environment Variables"] # Added RAG Agent
 )
 st.sidebar.markdown("---")
 st.sidebar.info("All agents run locally. Ensure Ollama models are pulled and .env is configured.")
@@ -29,10 +30,20 @@ if "code_chat_history" not in st.session_state:
     st.session_state.code_chat_history = []
 if "email_chat_history" not in st.session_state:
     st.session_state.email_chat_history = []
+if "rag_chat_history" not in st.session_state: # New: RAG chat history
+    st.session_state.rag_chat_history = []
+if "rag_document_chunks" not in st.session_state: # New: Stores processed document chunks
+    st.session_state.rag_document_chunks = None
+if "rag_is_document_loaded" not in st.session_state: # New: Flag for document status
+    st.session_state.rag_is_document_loaded = False
+if "rag_uploaded_file_name" not in st.session_state: # New: Stores the name of the uploaded RAG file
+    st.session_state.rag_uploaded_file_name = None
 if "env_vars" not in st.session_state:
     st.session_state.env_vars = {}
 if "generated_code_output" not in st.session_state:
     st.session_state.generated_code_output = ""
+if "generated_file_name" not in st.session_state:
+    st.session_state.generated_file_name = "generated_file.txt"
 
 
 def load_env_file():
@@ -53,43 +64,54 @@ load_env_file()
 
 if page_selection == "🤖 Code Agent":
     st.header("Code Agent 🤖")
-    st.markdown("Generate, analyze, and edit Python code. Generated code will be saved in the `Outputs` directory.")
+    st.markdown("Generate, analyze, and edit any file content. Generated content will be available for download.")
 
     user_query = st.text_input("Your instruction for the Code Agent:", key="code_agent_query")
 
-    uploaded_file = st.file_uploader("Optional: Upload a Python file for analysis/editing (e.g., for 'analyze this code'):", type=["py"], key="code_file_upload")
+    uploaded_file = st.file_uploader("Optional: Upload a file for analysis/editing:", type=None, key="code_file_upload")
     uploaded_code_content = None
+    uploaded_file_extension = None
     if uploaded_file is not None:
         uploaded_code_content = uploaded_file.read().decode("utf-8")
-        st.code(uploaded_code_content, language="python") # Removed 'summary' argument
+        file_name_parts = uploaded_file.name.split('.')
+        if len(file_name_parts) > 1:
+            uploaded_file_extension = file_name_parts[-1]
+        st.code(uploaded_code_content, language=uploaded_file_extension if uploaded_file_extension else "plaintext")
 
 
     if st.button("Run Code Agent", key="run_code_agent_btn"):
         if user_query:
             with st.spinner("Code Agent is processing..."):
-                # Pass uploaded_code_content correctly to the agent
-                response = process_code_request(user_query, uploaded_content=uploaded_code_content) # Ensure the named argument is used
+                response = process_code_request(user_query, uploaded_content=uploaded_code_content, uploaded_file_extension=uploaded_file_extension)
                 st.session_state.code_chat_history.append({"role": "user", "content": user_query})
                 if uploaded_code_content:
                     st.session_state.code_chat_history.append({"role": "code_upload", "content": uploaded_code_content})
                 st.session_state.code_chat_history.append({"role": "agent", "content": response})
 
-                if response.startswith("```python") and response.endswith("```"):
-                    st.session_state.generated_code_output = response.strip("```python\n").strip("```")
+                if response.startswith("```") and "\n" in response:
+                    first_line = response.split('\n')[0]
+                    language_tag = first_line.strip('`').strip()
+                    if language_tag:
+                        st.session_state.generated_file_name = f"generated_file.{language_tag}"
+                        st.session_state.generated_code_output = response.lstrip(first_line).rstrip('`').strip()
+                    else:
+                        st.session_state.generated_file_name = "generated_file.txt"
+                        st.session_state.generated_code_output = response.strip("```\n").strip("```")
                 else:
-                    st.session_state.generated_code_output = ""
+                    st.session_state.generated_file_name = "generated_file.txt"
+                    st.session_state.generated_code_output = response
         else:
             st.warning("Please enter an instruction for the Code Agent.")
 
     if st.session_state.generated_code_output:
         st.markdown("---")
-        st.subheader("Download Generated Code")
+        st.subheader("Download Generated File")
         st.download_button(
-            label="Download Generated Code",
+            label=f"Download {st.session_state.generated_file_name}",
             data=st.session_state.generated_code_output,
-            file_name="generated_code.py",
-            mime="text/x-python",
-            key="download_generated_code_btn"
+            file_name=st.session_state.generated_file_name,
+            mime="application/octet-stream",
+            key="download_generated_file_btn"
         )
 
 
@@ -99,7 +121,7 @@ if page_selection == "🤖 Code Agent":
         if message["role"] == "user":
             st.markdown(f"**You:** {message['content']}")
         elif message["role"] == "code_upload":
-            st.markdown(f"**Uploaded Code:**\n```python\n{message['content']}\n```")
+            st.markdown(f"**Uploaded Content:**\n```\n{message['content']}\n```")
         elif message["role"] == "agent":
             st.markdown(f"**Agent:** {message['content']}")
 
@@ -130,6 +152,65 @@ elif page_selection == "📧 Email Agent":
             st.markdown(f"**You:** {message['content']}")
         elif message["role"] == "agent":
             st.markdown(f"**Agent:** {message['content']}")
+
+
+elif page_selection == "📚 RAG Agent": # New RAG Agent Tab
+    st.header("RAG Agent 📚")
+    st.markdown("Upload a document (PDF, DOCX, TXT) and ask questions based on its content.")
+    st.info("Requires Ollama 'nomic-embed-text' and a chat model (e.g., 'qwen3:8B') to be pulled locally.")
+
+    uploaded_rag_file = st.file_uploader(
+        "Upload a document for RAG:",
+        type=["pdf", "docx", "txt"],
+        key="rag_file_upload"
+    )
+
+    if st.button("Process Document", key="process_rag_doc_btn"):
+        if uploaded_rag_file is not None:
+            with st.spinner(f"Processing '{uploaded_rag_file.name}'... This may take a moment."):
+                try:
+                    file_bytes = uploaded_rag_file.read()
+                    file_type = uploaded_rag_file.name.split('.')[-1]
+                    st.session_state.rag_document_chunks = load_and_process_document(file_bytes, file_type)
+                    st.session_state.rag_is_document_loaded = True
+                    st.session_state.rag_uploaded_file_name = uploaded_rag_file.name
+                    st.session_state.rag_chat_history.append({"role": "system", "content": f"Document '{uploaded_rag_file.name}' processed successfully. You can now ask questions."})
+                    st.success(f"Document '{uploaded_rag_file.name}' processed and ready for questions!")
+                except Exception as e:
+                    st.error(f"Error processing document: {e}")
+                    st.session_state.rag_is_document_loaded = False
+                    st.session_state.rag_document_chunks = None
+        else:
+            st.warning("Please upload a document first.")
+
+    if st.session_state.rag_is_document_loaded:
+        st.markdown(f"---")
+        st.subheader(f"Ask Questions about: {st.session_state.rag_uploaded_file_name}")
+        rag_question = st.text_input("Your question about the document:", key="rag_question_input")
+
+        if st.button("Ask RAG Agent", key="run_rag_agent_btn"):
+            if rag_question:
+                with st.spinner("RAG Agent is thinking..."):
+                    try:
+                        response = process_rag_request(rag_question, st.session_state.rag_document_chunks)
+                        st.session_state.rag_chat_history.append({"role": "user", "content": rag_question})
+                        st.session_state.rag_chat_history.append({"role": "agent", "content": response})
+                    except Exception as e:
+                        st.error(f"Error asking question: {e}")
+            else:
+                st.warning("Please enter a question.")
+    else:
+        st.info("Upload a document and click 'Process Document' to enable question answering.")
+
+    st.markdown("---")
+    st.subheader("RAG Agent Chat History")
+    for message in st.session_state.rag_chat_history:
+        if message["role"] == "user":
+            st.markdown(f"**You:** {message['content']}")
+        elif message["role"] == "agent":
+            st.markdown(f"**Agent:** {message['content']}")
+        elif message["role"] == "system":
+            st.info(message['content'])
 
 
 elif page_selection == "⚙️ Environment Variables":
