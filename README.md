@@ -47,7 +47,7 @@ Follow these steps to set up the project locally:
 
     ```bash
     git clone https://github.com/Sudharshan-3904/LocalAgent.git
-    cd your-repo-name
+    cd LocalAgent
     ```
 
 2. Create a virtual environment using uv (recommended):
