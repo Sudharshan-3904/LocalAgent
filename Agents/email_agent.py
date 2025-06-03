@@ -1,6 +1,6 @@
 import os
 import json
-from typing import TypedDict, Optional
+from typing import TypedDict
 
 from dotenv import load_dotenv
 from imap_tools import MailBox, AND
@@ -21,7 +21,7 @@ IMAP_USER = os.getenv("IMAP_USER")
 IMAP_PASS = os.getenv("IMAP_PASS")
 IMAP_FOLDER = 'INBOX'
 
-CHAT_MODEL = 'qwen3:14B'
+CHAT_MODEL = os.getenv("OLLAMA_MODEL_NAME")
 
 
 class ChatState(TypedDict):

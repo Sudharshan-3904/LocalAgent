@@ -11,5 +11,6 @@ dependencies = [
     "langchain>=0.3.25",
     "langchain-ollama>=0.3.3",
     "langgraph>=0.4.7",
+    "mcp",
     "steamlit",
 ]

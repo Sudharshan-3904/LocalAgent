@@ -4,6 +4,8 @@ from typing import TypedDict, Optional, List
 from PyPDF2 import PdfReader
 from docx import Document
 
+from dotenv import load_dotenv
+
 from langchain.chat_models import init_chat_model
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_core.tools import tool
@@ -13,8 +15,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import StateGraph, START, END
 
-CHAT_MODEL = 'qwen3:8B'
-EMBEDDING_MODEL = 'nomic-embed-text'
+load_dotenv()
+CHAT_MODEL = os.getenv("OLLAMA_MODEL_NAME")
+EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 TOP_K_RETRIEVAL = 4

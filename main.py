@@ -9,7 +9,8 @@ sys.path.insert(0, './Agents')
 
 from Agents.code_agent import process_agent_request as process_code_request
 from Agents.email_agent import process_email_request as process_email_request
-from Agents.rag_agent import load_and_process_document, process_rag_request # Import RAG functions
+from Agents.rag_agent import load_and_process_document, process_rag_request
+from Agents.blog_writer import process_blog_request as process_blog_request
 
 load_dotenv()
 
@@ -20,7 +21,7 @@ st.sidebar.markdown("---")
 
 page_selection = st.sidebar.radio(
     "Navigate",
-    ["🤖 Code Agent", "📧 Email Agent", "📚 RAG Agent", "⚙️ Environment Variables"] # Added RAG Agent
+    ["🤖 Code Agent", "📧 Email Agent", "📎 Blog Agent", "📚 RAG Agent", "⚙️ Environment Variables"]
 )
 st.sidebar.markdown("---")
 st.sidebar.info("All agents run locally. Ensure Ollama models are pulled and .env is configured.")
@@ -30,14 +31,20 @@ if "code_chat_history" not in st.session_state:
     st.session_state.code_chat_history = []
 if "email_chat_history" not in st.session_state:
     st.session_state.email_chat_history = []
-if "rag_chat_history" not in st.session_state: # New: RAG chat history
+if "rag_chat_history" not in st.session_state:
     st.session_state.rag_chat_history = []
-if "rag_document_chunks" not in st.session_state: # New: Stores processed document chunks
+if "rag_document_chunks" not in st.session_state:
     st.session_state.rag_document_chunks = None
-if "rag_is_document_loaded" not in st.session_state: # New: Flag for document status
+if "rag_is_document_loaded" not in st.session_state:
     st.session_state.rag_is_document_loaded = False
-if "rag_uploaded_file_name" not in st.session_state: # New: Stores the name of the uploaded RAG file
+if "rag_uploaded_file_name" not in st.session_state:
     st.session_state.rag_uploaded_file_name = None
+if "blog_chat_history" not in st.session_state:
+    st.session_state.blog_chat_history = []
+if "latest_blog" not in st.session_state:
+    st.session_state.latest_blog = None
+if "blogs_latest_n" not in st.session_state:
+    st.session_state.last_n_blog_list = []
 if "env_vars" not in st.session_state:
     st.session_state.env_vars = {}
 if "generated_code_output" not in st.session_state:
@@ -154,6 +161,47 @@ elif page_selection == "📧 Email Agent":
             st.markdown(f"**Agent:** {message['content']}")
 
 
+elif page_selection == "📎 Blog Agent":
+    st.header("Blog Writer Agent 📎")
+    st.markdown("Write and publish blog posts, or retrieve recent posts.")
+
+    st.info(
+        "Your instruction for the Blogger Agent (e.g., 'get last n blogs', 'create blog', etc)"
+    )
+
+    blog_title_input = st.text_input("Blog Title ( Required ):", key="blog_title_input")
+    blog_instruction_input = st.text_area(
+        "Blog Content/Instruction ( Optional ):",
+        key="blog_instruction_input",
+        placeholder="Write your blog content or instructions here..."
+    )
+
+    blog_query = f"Title: {blog_title_input} Instructions: {blog_instruction_input}" if blog_title_input else ""
+
+    if st.button("Run Blog Agent", key="blog_agent_query_btn"):
+        if blog_query:
+            with st.spinner("Blog Agent is working..."):
+                response = process_blog_request(blog_query)
+                st.session_state.blog_chat_history.append({"role": "user", "content": blog_query})
+                st.session_state.blog_chat_history.append({"role": "agent", "content": response})
+        else:
+            st.warning("Please enter an instruction for the Blog Agent.")
+    
+    latest_blog_markdown = st.session_state.blog_chat_history[-1]['content'] if st.session_state.blog_chat_history else "No blog content available."
+
+    st.markdown("---")
+    st.subheader("Current Blog")
+    st.markdown(latest_blog_markdown if latest_blog_markdown else "No blog generated yet.")
+    st.markdown("---")
+
+    # st.subheader("Blog Agent Chat History")
+    # for message in st.session_state.email_chat_history:
+    #     if message["role"] == "user":
+    #         st.markdown(f"**You:** {message['content']}")
+    #     elif message["role"] == "agent":
+    #         st.markdown(f"**Agent:** {message['content']}")
+
+
 elif page_selection == "📚 RAG Agent": # New RAG Agent Tab
     st.header("RAG Agent 📚")
     st.markdown("Upload a document (PDF, DOCX, TXT) and ask questions based on its content.")
@@ -218,14 +266,6 @@ elif page_selection == "⚙️ Environment Variables":
     st.warning("🚨 **Caution:** Changes to environment variables require restarting the Streamlit application to take effect in the agents.")
     st.markdown("---")
 
-    st.subheader("Current `.env` Entries")
-    if st.session_state.env_vars:
-        for key, value in st.session_state.env_vars.items():
-            st.text(f"{key}={value}")
-    else:
-        st.info("No entries found in .env file or file does not exist.")
-
-    st.markdown("---")
     st.subheader("Add/Update Entry")
     new_key = st.text_input("Key:", key="env_new_key")
     new_value = st.text_input("Value:", key="env_new_value")
@@ -241,6 +281,14 @@ elif page_selection == "⚙️ Environment Variables":
             st.success(f"Entry '{new_key}' saved/updated. Restart app to apply changes.")
         else:
             st.warning("Key cannot be empty.")
+    st.markdown("---")
+
+    st.subheader("Current `.env` Entries")
+    if st.session_state.env_vars:
+        for key, _ in st.session_state.env_vars.items():
+            st.markdown(f"- {key}")
+    else:
+        st.info("No entries found in .env file or file does not exist.")
 
     st.markdown("---")
     st.subheader("Remove Entry")

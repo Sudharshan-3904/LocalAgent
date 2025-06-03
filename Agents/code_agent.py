@@ -1,4 +1,7 @@
 from typing import TypedDict, Optional
+import os
+
+from dotenv import load_dotenv
 
 from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
@@ -7,13 +10,14 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import StateGraph, START, END
 
-CHAT_MODEL = 'qwen3:8B'
+load_dotenv()
+CHAT_MODEL = os.getenv("OLLAMA_MODEL_NAME")
 
 
 class ChatState(TypedDict):
     messages: list
     uploaded_file_content: Optional[str]
-    uploaded_file_extension: Optional[str] # New: to store original extension for context
+    uploaded_file_extension: Optional[str]
 
 
 @tool
