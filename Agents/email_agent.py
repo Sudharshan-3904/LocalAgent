@@ -92,7 +92,7 @@ def summarize_email(uid: str):
 
 
 llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
-llm = llm.bind_tools([list_unread_emails, summarize_email])
+tool_node = ToolNode([list_unread_emails, summarize_email])
 
 raw_llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
 
@@ -114,8 +114,6 @@ def router(state):
     """Determines the next step in the graph based on the LLM's response."""
     last_message = state['messages'][-1]
     return 'tools' if getattr(last_message, 'tool_calls', None) else 'end'
-
-tool_node = ToolNode([list_unread_emails, summarize_email])
 
 def tools_node(state):
     """Executes the tool called by the LLM."""

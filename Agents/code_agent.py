@@ -1,4 +1,5 @@
 from typing import TypedDict, Optional
+from typing import Annotated
 import os
 
 from dotenv import load_dotenv
@@ -29,7 +30,6 @@ def analyze_and_edit_file(file_content: str, instructions: str, original_extensi
     if not file_content:
         return "Error: No file content provided for analysis or editing."
 
-    # Adjust prompt to be generic for any file type, but mention original_extension if available
     prompt = (
         f"You are an expert file analyzer and editor. "
         f"Analyze and modify the following file content according to these instructions: '{instructions}'.\n\n"
@@ -42,15 +42,12 @@ def analyze_and_edit_file(file_content: str, instructions: str, original_extensi
 
     try:
         modified_content = raw_llm.invoke(prompt).content
-        # We will not strip specific markdown like ```python, as it can be any type
-        # The agent should ideally output raw content or a fenced code block with appropriate language tag
         return modified_content
     except Exception as e:
         return f"Error during file analysis and editing: {e}"
 
-
 llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
-llm = llm.bind_tools([analyze_and_edit_file])
+tool_node = ToolNode([analyze_and_edit_file])
 
 raw_llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
 
@@ -87,9 +84,6 @@ def router(state):
             return "tools"
     return 'end'
 
-
-tool_node = ToolNode([analyze_and_edit_file])
-
 def tools_node(state):
     """Executes the tool called by the LLM."""
     result = tool_node.invoke(state)
@@ -120,9 +114,11 @@ def process_agent_request(user_instruction: str, uploaded_content: Optional[str]
     Returns:
         str: The agent's final response or tool output.
     """
-    initial_state = {'messages': [HumanMessage(content=user_instruction)],
-                     'uploaded_file_content': uploaded_content,
-                     'uploaded_file_extension': uploaded_file_extension} # Pass the extension
+    initial_state = {
+        'messages': [HumanMessage(content=user_instruction)],
+        'uploaded_file_content': uploaded_content,
+        'uploaded_file_extension': uploaded_file_extension
+    }
 
     final_graph_output = None
     for s in graph.stream(initial_state):
@@ -137,6 +133,8 @@ def process_agent_request(user_instruction: str, uploaded_content: Optional[str]
             return last_message.content
         elif isinstance(last_message, ToolMessage):
             return last_message.content
+        elif isinstance(last_message, str):
+            return last_message
         else:
             return "Agent response: " + str(last_message)
     return "No response from code agent."

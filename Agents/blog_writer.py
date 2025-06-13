@@ -81,11 +81,10 @@ def get_last_n_blogs(n=3):
 class ChatState(TypedDict):
     messages: list
     latest_blog: Optional[dict]
-    last_n_blog_list = Optional[list[dict]]
-
+    last_n_blogs: Optional[list]
 
 llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
-llm = llm.bind_tools([create_new_blog, post_new_blog, get_last_n_blogs])
+tool_node = ToolNode([create_new_blog, post_new_blog, get_last_n_blogs])
 
 raw_llm = init_chat_model(CHAT_MODEL, model_provider='ollama')
 
@@ -108,8 +107,6 @@ def router(state):
         return 'llm'
     else:
         return 'end'
-
-tool_node = ToolNode([create_new_blog, post_new_blog, get_last_n_blogs])
 
 def tools_node(state):
     """Executes the tool called by the LLM."""

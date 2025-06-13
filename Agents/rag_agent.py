@@ -150,7 +150,7 @@ def answer_question(question: str, context: str) -> str:
     return response
 
 llm_with_tools = init_chat_model(CHAT_MODEL, model_provider='ollama')
-llm_with_tools = llm_with_tools.bind_tools([retrieve_context, answer_question])
+tool_node = ToolNode([retrieve_context, answer_question])
 
 def llm_node(state: ChatState) -> dict:
     """
@@ -168,8 +168,6 @@ def router(state: ChatState) -> str:
     if getattr(last_message, 'tool_calls', None):
         return "tools"
     return "end"
-
-tool_node = ToolNode([retrieve_context, answer_question])
 
 def tools_node(state: ChatState) -> dict:
     """
